@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GanaFlow | Juega y Gana</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Bungee&family=Inter:wght@300;400;600;800&display=swap');
+        
+        :root {
+            --primary: #6366f1;
+            --secondary: #f43f5e;
+            --accent: #f59e0b;
+            --bg: #0f172a;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg);
+            color: white;
+            overflow-x: hidden;
+        }
+
+        .font-game { font-family: 'Bungee', cursive; }
+
+        .glass {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-game {
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 4px 0 rgba(0,0,0,0.2);
+        }
+
+        .btn-game:active {
+            transform: translateY(4px);
+            box-shadow: 0 0 0 rgba(0,0,0,0.2);
+        }
+
+        .animate-pop { animation: pop 0.3s ease-out; }
+        @keyframes pop {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .float { animation: float 3s ease-in-out infinite; }
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .coin-spin { animation: spin 1s linear infinite; }
+        @keyframes spin {
+            from { transform: rotateY(0deg); }
+            to { transform: rotateY(360deg); }
+        }
+
+        .progress-fill { transition: width 0.5s ease-in-out; }
+
+        ::-webkit-scrollbar { width: 0px; }
+
+        /* Estilos para el minijuego de Clicker */
+        #game-canvas {
+            position: relative;
+            height: 250px;
+            width: 100%;
+            background: rgba(15, 23, 42, 0.5);
+            border-radius: 1.5rem;
+            overflow: hidden;
+            border: 1px dashed rgba(255, 255, 255, 0.2);
+        }
+
+        .target-coin {
+            position: absolute;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+
+    <!-- Pantalla de Autenticación -->
+    <div id="auth-screen" class="fixed inset-0 z-[200] bg-slate-950 flex flex-col items-center justify-center p-6">
+        <div class="mb-10 text-center float">
+            <div class="w-20 h-20 bg-indigo-600 rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-[0_0_30px_rgba(99,102,241,0.5)]">
+                <i class="fa-solid fa-bolt-lightning text-4xl text-yellow-300"></i>
+            </div>
+            <h1 class="text-4xl font-game tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-rose-400">GANAFLOW</h1>
+            <p class="text-slate-400 text-xs mt-2 uppercase tracking-[0.3em]">Juega • Gana • Canjea</p>
+        </div>
+
+        <div class="w-full max-w-sm space-y-4" id="auth-forms">
+            <div class="glass p-8 rounded-[2rem]">
+                <div id="login-form">
+                    <h2 class="text-xl font-bold mb-6 flex items-center gap-2">
+                        <i class="fa-solid fa-user-circle text-indigo-400"></i> Bienvenido
+                    </h2>
+                    <input type="text" id="login-user" placeholder="Usuario" class="w-full bg-slate-900/50 border border-slate-700 p-4 rounded-2xl mb-4 outline-none focus:border-indigo-500 transition">
+                    <input type="password" id="login-pass" placeholder="Contraseña" class="w-full bg-slate-900/50 border border-slate-700 p-4 rounded-2xl mb-6 outline-none focus:border-indigo-500 transition">
+                    <button onclick="handleAuth('login')" class="w-full bg-indigo-600 py-4 rounded-2xl font-bold text-lg btn-game">Entrar a Ganar</button>
+                    <p class="text-center mt-6 text-sm text-slate-400">¿No tienes cuenta? <button onclick="toggleAuth()" class="text-indigo-400 font-bold">Regístrate</button></p>
+                </div>
+
+                <div id="register-form" class="hidden">
+                    <h2 class="text-xl font-bold mb-6 flex items-center gap-2">
+                        <i class="fa-solid fa-user-plus text-rose-400"></i> Crear Cuenta
+                    </h2>
+                    <input type="text" id="reg-user" placeholder="Crea un usuario" class="w-full bg-slate-900/50 border border-slate-700 p-4 rounded-2xl mb-4 outline-none focus:border-rose-500 transition">
+                    <input type="password" id="reg-pass" placeholder="Crea una contraseña" class="w-full bg-slate-900/50 border border-slate-700 p-4 rounded-2xl mb-6 outline-none focus:border-rose-500 transition">
+                    <button onclick="handleAuth('register')" class="w-full bg-rose-600 py-4 rounded-2xl font-bold text-lg btn-game">Empezar Ahora</button>
+                    <p class="text-center mt-6 text-sm text-slate-400">¿Ya tienes cuenta? <button onclick="toggleAuth()" class="text-rose-400 font-bold">Inicia Sesión</button></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- UI Principal de la App -->
+    <div id="main-app" class="hidden min-h-screen flex flex-col pb-24">
+        
+        <!-- Barra Superior -->
+        <header class="p-6 flex justify-between items-center sticky top-0 z-50 glass border-b border-white/5">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center font-bold text-white shadow-lg shadow-indigo-500/20" id="user-initial">
+                    U
+                </div>
+                <div>
+                    <h3 class="text-sm font-bold leading-none mb-1" id="nav-username">Cargando...</h3>
+                    <div class="flex items-center gap-1">
+                        <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                        <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Online</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-3 bg-slate-800/80 px-4 py-2 rounded-2xl border border-white/5">
+                <i class="fa-solid fa-coins text-yellow-400 coin-spin"></i>
+                <span class="font-game text-lg tracking-tight" id="score-display">0</span>
+            </div>
+        </header>
+
+        <!-- Contenedor de Contenido Principal -->
+        <main id="content-container" class="p-6 flex-grow animate-pop">
+            <!-- El contenido se inyecta aquí -->
+        </main>
+
+        <!-- Navegación Inferior -->
+        <nav class="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-sm glass border border-white/10 rounded-[2.5rem] flex justify-around p-3 z-[100] shadow-2xl">
+            <button onclick="navigate('home')" class="nav-btn w-14 h-14 rounded-full flex items-center justify-center transition-all" id="nav-home">
+                <i class="fa-solid fa-house-chimney text-xl"></i>
+            </button>
+            <button onclick="navigate('earn')" class="nav-btn w-14 h-14 rounded-full flex items-center justify-center transition-all" id="nav-earn">
+                <i class="fa-solid fa-play text-xl"></i>
+            </button>
+            <button onclick="navigate('shop')" class="nav-btn w-14 h-14 rounded-full flex items-center justify-center transition-all" id="nav-shop">
+                <i class="fa-solid fa-shop text-xl"></i>
+            </button>
+            <button onclick="navigate('profile')" class="nav-btn w-14 h-14 rounded-full flex items-center justify-center transition-all" id="nav-profile">
+                <i class="fa-solid fa-user-gear text-xl"></i>
+            </button>
+        </nav>
+    </div>
+
+    <!-- Sistema de Notificaciones (Toast) -->
+    <div id="toast" class="fixed top-24 left-1/2 -translate-x-1/2 z-[300] glass px-6 py-3 rounded-2xl border-indigo-500/30 text-sm font-bold hidden animate-pop">
+        ¡+100 Puntos!
+    </div>
+
+    <script>
+        // Gestión del Estado
+        let userState = {
+            currentUser: null,
+            points: 0,
+            level: 1,
+            xp: 0,
+            tasksCompleted: 0
+        };
+
+        const STORAGE_KEY = 'ganaflow_users';
+
+        // Lógica de Autenticación
+        function toggleAuth() {
+            document.getElementById('login-form').classList.toggle('hidden');
+            document.getElementById('register-form').classList.toggle('hidden');
+        }
+
+        function handleAuth(type) {
+            const users = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+            
+            if (type === 'register') {
+                const u = document.getElementById('reg-user').value.trim();
+                const p = document.getElementById('reg-pass').value.trim();
+                if (!u || !p) return showToast("Faltan datos");
+                if (users[u]) return showToast("El usuario ya existe");
+                
+                users[u] = { password: p, points: 0, level: 1, xp: 0, tasks: 0 };
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(users));
+                showToast("¡Cuenta creada!", "success");
+                toggleAuth();
+            } else {
+                const u = document.getElementById('login-user').value.trim();
+                const p = document.getElementById('login-pass').value.trim();
+                if (users[u] && users[u].password === p) {
+                    userState.currentUser = u;
+                    userState.points = users[u].points;
+                    userState.level = users[u].level || 1;
+                    userState.xp = users[u].xp || 0;
+                    userState.tasksCompleted = users[u].tasks || 0;
+                    loginSuccess();
+                } else {
+                    showToast("Usuario o clave incorrecta");
+                }
+            }
+        }
+
+        function loginSuccess() {
+            document.getElementById('auth-screen').classList.add('hidden');
+            document.getElementById('main-app').classList.remove('hidden');
+            document.getElementById('nav-username').innerText = userState.currentUser;
+            document.getElementById('user-initial').innerText = userState.currentUser[0].toUpperCase();
+            updateScoreDisplay();
+            navigate('home');
+        }
+
+        function logout() {
+            saveUserProgress();
+            location.reload();
+        }
+
+        function saveUserProgress() {
+            if (!userState.currentUser) return;
+            const users = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+            users[userState.currentUser] = {
+                ...users[userState.currentUser],
+                points: userState.points,
+                level: userState.level,
+                xp: userState.xp,
+                tasks: userState.tasksCompleted
+            };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(users));
+        }
+
+        function updateScoreDisplay() {
+            document.getElementById('score-display').innerText = userState.points.toLocaleString();
+            saveUserProgress();
+        }
+
+        function showToast(msg, type = "info") {
+            const toast = document.getElementById('toast');
+            toast.innerText = msg;
+            toast.style.borderColor = type === "success" ? "#10b981" : "#6366f1";
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 2000);
+        }
+
+        // Navegación y Vistas
+        const views = {
+            home: () => `
+                <div class="space-y-6">
+                    <div class="glass p-8 rounded-[2.5rem] relative overflow-hidden bg-gradient-to-br from-indigo-900/40 to-slate-900">
+                        <div class="absolute -right-10 -top-10 w-40 h-40 bg-indigo-600/20 rounded-full blur-3xl"></div>
+                        <h2 class="text-2xl font-game mb-2 tracking-tight">Nivel ${userState.level}</h2>
+                        <div class="flex justify-between text-xs font-bold text-slate-400 mb-2">
+                            <span>PROGRESO XP</span>
+                            <span>${userState.xp}/100</span>
+                        </div>
+                        <div class="h-4 bg-slate-800 rounded-full overflow-hidden p-1">
+                            <div class="h-full bg-indigo-500 rounded-full progress-fill" style="width: ${userState.xp}%"></div>
+                        </div>
+                        <p class="mt-4 text-sm text-slate-300">¡Te faltan ${100 - userState.xp} XP para subir de nivel!</p>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div onclick="navigate('earn')" class="glass p-6 rounded-[2rem] border-indigo-500/20 active:scale-95 transition">
+                            <i class="fa-solid fa-rectangle-ad text-indigo-400 text-2xl mb-3"></i>
+                            <h4 class="font-bold text-sm">Ver Ads</h4>
+                            <p class="text-[10px] text-slate-400 uppercase">Gana +50 pts</p>
+                        </div>
+                        <div onclick="navigate('minigames')" class="glass p-6 rounded-[2rem] border-rose-500/20 active:scale-95 transition">
+                            <i class="fa-solid fa-gamepad text-rose-400 text-2xl mb-3"></i>
+                            <h4 class="font-bold text-sm">Minijuegos</h4>
+                            <p class="text-[10px] text-slate-400 uppercase">Gana +100 pts</p>
+                        </div>
+                    </div>
+
+                    <div class="glass p-6 rounded-[2rem]">
+                        <h3 class="font-bold mb-4 flex items-center gap-2">
+                            <i class="fa-solid fa-ranking-star text-yellow-500"></i> Misiones Diarias
+                        </h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between p-3 bg-slate-800/50 rounded-xl">
+                                <span class="text-sm">Ver Ads Diarios</span>
+                                <span class="text-xs font-game text-indigo-400">0/5</span>
+                            </div>
+                            <div class="flex items-center justify-between p-3 bg-slate-800/50 rounded-xl">
+                                <span class="text-sm">Racha de Ingreso</span>
+                                <span class="text-xs font-game text-green-400">READY</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `,
+            earn: () => `
+                <div class="space-y-6">
+                    <h2 class="text-2xl font-game tracking-tight text-center">Mira y Gana</h2>
+                    
+                    <div class="glass p-6 rounded-[2.5rem] border-indigo-500/30 text-center">
+                        <div class="w-16 h-16 bg-indigo-900/50 rounded-2xl flex items-center justify-center mx-auto mb-4 text-2xl text-indigo-400">
+                            <i class="fa-solid fa-tv"></i>
+                        </div>
+                        <h3 class="font-bold text-lg mb-2">Video Publicitario</h3>
+                        <p class="text-sm text-slate-400 mb-6">Completa el video para recibir tus puntos.</p>
+                        <button onclick="simulateAd()" id="ad-btn" class="w-full py-4 bg-indigo-600 rounded-2xl font-bold btn-game uppercase tracking-wider">Ver Ahora (+50)</button>
+                    </div>
+                    
+                    <button onclick="navigate('minigames')" class="w-full py-4 glass rounded-2xl font-bold text-rose-400 flex items-center justify-center gap-3">
+                        <i class="fa-solid fa-gamepad"></i> IR A MINIJUEGOS
+                    </button>
+                </div>
+            `,
+            minigames: () => `
+                <div class="space-y-6">
+                    <h2 class="text-2xl font-game tracking-tight text-center text-rose-400">Minijuegos</h2>
+                    
+                    <div class="grid gap-4">
+                        <div onclick="startLuckyChest()" class="glass p-6 rounded-[2rem] flex items-center gap-5 border-rose-500/20 active:scale-95 transition cursor-pointer">
+                            <div class="w-14 h-14 bg-rose-500/20 rounded-2xl flex items-center justify-center text-rose-400 text-2xl">
+                                <i class="fa-solid fa-box-open"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-bold">Cofre de la Suerte</h3>
+                                <p class="text-[10px] text-slate-400 uppercase">Gana hasta 500 pts</p>
+                            </div>
+                        </div>
+
+                        <div onclick="startClickerGame()" class="glass p-6 rounded-[2rem] flex items-center gap-5 border-indigo-500/20 active:scale-95 transition cursor-pointer">
+                            <div class="w-14 h-14 bg-indigo-500/20 rounded-2xl flex items-center justify-center text-indigo-400 text-2xl">
+                                <i class="fa-solid fa-hand-pointer"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-bold">Clicker Galáctico</h3>
+                                <p class="text-[10px] text-slate-400 uppercase">Atrapa la moneda rápida</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="game-zone" class="hidden animate-pop space-y-4">
+                        <!-- El juego activo se mostrará aquí -->
+                    </div>
+                </div>
+            `,
+            shop: () => `
+                <div class="space-y-6">
+                    <h2 class="text-2xl font-game tracking-tight text-center">Tienda de Canje</h2>
+                    
+                    <div class="grid gap-4">
+                        <div onclick="redeem('Combo Burger', 5000)" class="glass p-5 rounded-[2rem] flex items-center justify-between active:scale-95 transition cursor-pointer border-orange-500/20">
+                            <div class="flex items-center gap-4">
+                                <div class="w-12 h-12 bg-orange-500/20 rounded-xl flex items-center justify-center text-orange-400 text-xl">
+                                    <i class="fa-solid fa-hamburger"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-bold">Comida Gratis</h4>
+                                    <p class="text-xs text-slate-400">Cupón Burger</p>
+                                </div>
+                            </div>
+                            <span class="font-game text-sm text-orange-400">5,000 pts</span>
+                        </div>
+
+                        <div onclick="redeem('Recarga Celular', 2000)" class="glass p-5 rounded-[2rem] flex items-center justify-between active:scale-95 transition cursor-pointer border-blue-500/20">
+                            <div class="flex items-center gap-4">
+                                <div class="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center text-blue-400 text-xl">
+                                    <i class="fa-solid fa-mobile-screen"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-bold">Recarga Celular</h4>
+                                    <p class="text-xs text-slate-400">Todo Operador</p>
+                                </div>
+                            </div>
+                            <span class="font-game text-sm text-blue-400">2,000 pts</span>
+                        </div>
+
+                        <div onclick="redeem('Retiro PayPal', 10000)" class="glass p-5 rounded-[2rem] flex items-center justify-between active:scale-95 transition cursor-pointer border-green-500/20">
+                            <div class="flex items-center gap-4">
+                                <div class="w-12 h-12 bg-green-500/20 rounded-xl flex items-center justify-center text-green-400 text-xl">
+                                    <i class="fa-solid fa-money-bill-transfer"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-bold">Retiro Dinero</h4>
+                                    <p class="text-xs text-slate-400">PayPal Express</p>
+                                </div>
+                            </div>
+                            <span class="font-game text-sm text-green-400">10,000 pts</span>
+                        </div>
+                    </div>
+                </div>
+            `,
+            profile: () => `
+                <div class="space-y-6">
+                    <div class="text-center py-6">
+                        <div class="w-24 h-24 bg-indigo-600 rounded-full mx-auto mb-4 border-4 border-slate-800 shadow-xl flex items-center justify-center text-3xl font-bold font-game">
+                            ${userState.currentUser ? userState.currentUser[0].toUpperCase() : 'U'}
+                        </div>
+                        <h2 class="text-xl font-bold">${userState.currentUser}</h2>
+                        <p class="text-xs text-slate-400 uppercase tracking-widest">Estado: Usuario Activo</p>
+                    </div>
+
+                    <div class="glass p-6 rounded-[2rem] grid grid-cols-2 gap-4">
+                        <div class="text-center">
+                            <h4 class="text-xs font-bold text-slate-400 mb-1 uppercase">Juegos Jugados</h4>
+                            <p class="text-xl font-game">${userState.tasksCompleted}</p>
+                        </div>
+                        <div class="text-center">
+                            <h4 class="text-xs font-bold text-slate-400 mb-1 uppercase">Canjes</h4>
+                            <p class="text-xl font-game">0</p>
+                        </div>
+                    </div>
+
+                    <button onclick="logout()" class="w-full py-4 bg-slate-800 text-rose-400 rounded-2xl font-bold border border-rose-500/20">CERRAR SESIÓN</button>
+                </div>
+            `
+        };
+
+        function navigate(tab) {
+            document.getElementById('content-container').innerHTML = views[tab]();
+            
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('bg-indigo-600', 'text-white', 'shadow-indigo-500/30', 'scale-110');
+                btn.classList.add('text-slate-400');
+            });
+            const active = document.getElementById(`nav-${tab === 'minigames' ? 'earn' : tab}`);
+            if (active) {
+                active.classList.add('bg-indigo-600', 'text-white', 'shadow-indigo-500/30', 'scale-110');
+                active.classList.remove('text-slate-400');
+            }
+        }
+
+        // Acciones y Minijuegos
+        function simulateAd() {
+            const btn = document.getElementById('ad-btn');
+            btn.disabled = true;
+            btn.innerText = "PROCESANDO...";
+            btn.classList.add('opacity-50');
+
+            setTimeout(() => {
+                addReward(50, 15);
+                btn.disabled = false;
+                btn.innerText = "VER AHORA (+50)";
+                btn.classList.remove('opacity-50');
+                showToast("+50 Puntos!", "success");
+            }, 3000);
+        }
+
+        // Minijuego 1: Cofre
+        function startLuckyChest() {
+            const zone = document.getElementById('game-zone');
+            zone.classList.remove('hidden');
+            zone.innerHTML = `
+                <div class="glass p-8 rounded-[2rem] text-center border-rose-500/40">
+                    <div id="chest-animation" class="text-6xl mb-6 float">📦</div>
+                    <h3 class="text-xl font-bold mb-4">¿Te sientes con suerte?</h3>
+                    <button onclick="playChest()" id="play-chest-btn" class="w-full py-4 bg-rose-600 rounded-2xl font-bold btn-game">ABRIR COFRE</button>
+                    <button onclick="hideGameZone()" class="mt-4 text-xs text-slate-400 font-bold uppercase tracking-widest">Cerrar Juego</button>
+                </div>
+            `;
+        }
+
+        function playChest() {
+            const btn = document.getElementById('play-chest-btn');
+            const icon = document.getElementById('chest-animation');
+            btn.disabled = true;
+            icon.innerText = "⌛";
+            
+            setTimeout(() => {
+                const reward = Math.floor(Math.random() * 450) + 50;
+                icon.innerText = "🎁";
+                showToast(`¡GANASTE ${reward} PTS!`, "success");
+                addReward(reward, 20);
+                btn.innerText = "JUGAR DE NUEVO";
+                btn.disabled = false;
+            }, 1500);
+        }
+
+        // Minijuego 2: Clicker
+        let clickerScore = 0;
+        let clickerTimer = null;
+
+        function startClickerGame() {
+            const zone = document.getElementById('game-zone');
+            zone.classList.remove('hidden');
+            clickerScore = 0;
+            zone.innerHTML = `
+                <div class="glass p-6 rounded-[2rem] text-center border-indigo-500/40">
+                    <div class="flex justify-between items-center mb-4">
+                        <span class="font-game text-indigo-400">ATRÁPALO: <span id="click-score">0</span></span>
+                        <span class="text-xs text-slate-400" id="click-timer">10s</span>
+                    </div>
+                    <div id="game-canvas">
+                        <div id="target" onclick="clickTarget()" class="target-coin w-12 h-12 bg-yellow-400 rounded-full flex items-center justify-center border-4 border-yellow-600 shadow-lg text-yellow-800 font-bold">
+                            $
+                        </div>
+                    </div>
+                    <button id="start-click-btn" onclick="runClickerLoop()" class="w-full py-4 bg-indigo-600 rounded-2xl font-bold btn-game mt-4">EMPEZAR JUEGO</button>
+                    <button onclick="hideGameZone()" class="mt-4 text-xs text-slate-400 font-bold uppercase tracking-widest">Cerrar Juego</button>
+                </div>
+            `;
+            moveTarget();
+        }
+
+        function moveTarget() {
+            const target = document.getElementById('target');
+            if (!target) return;
+            const canvas = document.getElementById('game-canvas');
+            const maxX = canvas.offsetWidth - 50;
+            const maxY = canvas.offsetHeight - 50;
+            
+            const randomX = Math.floor(Math.random() * maxX);
+            const randomY = Math.floor(Math.random() * maxY);
+            
+            target.style.left = randomX + 'px';
+            target.style.top = randomY + 'px';
+        }
+
+        function clickTarget() {
+            if (clickerTimer) {
+                clickerScore++;
+                document.getElementById('click-score').innerText = clickerScore;
+                moveTarget();
+                showToast("+1 Tino!", "info");
+            }
+        }
+
+        function runClickerLoop() {
+            const btn = document.getElementById('start-click-btn');
+            btn.style.display = 'none';
+            let timeLeft = 10;
+            const timerText = document.getElementById('click-timer');
+            
+            clickerTimer = setInterval(() => {
+                timeLeft--;
+                timerText.innerText = timeLeft + 's';
+                moveTarget();
+
+                if (timeLeft <= 0) {
+                    clearInterval(clickerTimer);
+                    clickerTimer = null;
+                    const finalPoints = clickerScore * 10;
+                    showToast(`¡TIEMPO! Ganaste ${finalPoints} pts`, "success");
+                    addReward(finalPoints, 25);
+                    btn.style.display = 'block';
+                    btn.innerText = "JUGAR OTRA VEZ";
+                }
+            }, 1000);
+        }
+
+        function hideGameZone() {
+            document.getElementById('game-zone').classList.add('hidden');
+            if (clickerTimer) clearInterval(clickerTimer);
+        }
+
+        function addReward(pts, xp) {
+            userState.points += pts;
+            userState.xp += xp;
+            userState.tasksCompleted++;
+
+            if (userState.xp >= 100) {
+                userState.level++;
+                userState.xp = 0;
+                showToast("¡SUBISTE DE NIVEL! 🎉", "success");
+            }
+
+            updateScoreDisplay();
+        }
+
+        function redeem(item, cost) {
+            if (userState.points < cost) {
+                showToast("Puntos insuficientes");
+            } else {
+                if (confirm(`¿Deseas canjear ${item} por ${cost} puntos?`)) {
+                    userState.points -= cost;
+                    updateScoreDisplay();
+                    showToast("¡Solicitud enviada! 🚀", "success");
+                    navigate('home');
+                }
+            }
+        }
+
+        window.onload = () => {
+            const users = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+            // Autologin simple si existe sesión previa (opcional para desarrollo)
+        };
+    </script>
+</body>
+</html>
